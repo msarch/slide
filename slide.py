@@ -7,13 +7,12 @@ import math
 import pyglet
 from pyglet.gl import *
 
-SCREEN = 1280, 800
-ORIGIN = [640,400,0]             # x,y = screen center, rotation = 0
 PI, TWOPI = math.pi, math.pi * 2
 RAD2DEG = 360 / TWOPI
-OMEGA = TWOPI * 0.5              # angular velocity (rev/s) : TWOPI/2=1/2 rev/s
-RADIUS = 390
-alpha = 0.0                      # start angle
+OMEGA = TWOPI * 0.5 # angular velocity (rev/s) : TWOPI/2=1/2 rev/s
+ORIGIN = [1280/2,800/2,0]             # x,y = screen center, rotation = 0
+RADIUS = 390                          # large circle fitting into screen
+status = {'alpha' :0.0, 'revs' : 1 }  # start angle, rev count
 
 #--------------------------------- PYGLET STUFF -------------------------------
 batch = pyglet.graphics.Batch()
@@ -41,19 +40,25 @@ class Sketch(pyglet.graphics.Group):
     def set_state(self):
         glPushMatrix()
         glTranslatef(self.pos[0], self.pos[1], 0)
-        glRotatef(self.pos[2], 0, 0, 1) # degrees,around x, y, z axis
+        glRotatef(self.pos[2]*RAD2DEG, 0, 0, 1) # degrees around x, y, z axis
 
     def unset_state(self):
         glPopMatrix()
 
 wheel= Sketch()  # 'default' sketch
+
 #------------------------------- ACTION STUFF ---------------------------------
-def update(dt, *args, **kwargs):
-    # yelds sine and cosine values from an uniform circular motion
-    global alpha
-    alpha = (alpha + (dt * OMEGA)) % TWOPI  # stay within [0,2*Pi]
-    wheel.pos[2] = alpha*RAD2DEG
+def update(dt): # updates an uniform circular motion then calls list of actions
+    status['alpha'] += dt * OMEGA
+    if status['alpha'] > TWOPI:
+        status['alpha'] -= TWOPI
+        status['revs'] +=1 # stay within [0,2*Pi]
+        print status['revs']
+    updates(dt)
     draw()
+
+def updates(dt):
+    wheel.pos[2] = status['alpha']
 
 def translate(vtx,dx,dy): # modifying all vertices at once
     return(reduce(tuple.__add__, zip([x+dx for x in vtx[0::2]],
