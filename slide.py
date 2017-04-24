@@ -9,8 +9,9 @@ from pyglet.gl import *
 
 DEG2RAD = 2* math.pi/360
 OMEGA = 360.0 * 0.5 # angular velocity (rev/s) : 1/2 rev/s
-ORIGIN = [1280/2,800/2,0]            # x,y of screen center, rotation = 0
-alpha = 0.0                          # initial angle
+ORIGIN = [1280/2,800/2,0]   # x,y of screen center, rotation = 0
+alpha = 0.0                 # initial angle
+vis = 1                     # visibility switch
 #---------------------------------- SKETCH ------------------------------------
 class Sketch(pyglet.graphics.Group): # subclass with position/rotation ability
     def __init__(self,pos=ORIGIN):
@@ -34,13 +35,21 @@ def translate(vtx,pos): # modifying a list of vertices at once to new pos
 batch = pyglet.graphics.Batch()  # holds all graphics
 canvas = pyglet.window.Window(fullscreen=True)
 canvas.set_mouse_visible(False)
+
 glEnable(GL_LINE_SMOOTH)
 glHint(GL_LINE_SMOOTH_HINT, GL_DONT_CARE)
-glClearColor(0,0,0,0)  # background color
+glEnable(GL_BLEND)                                  # transparency
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)   # transparency
+black   =(  0,   0,   0, 255)
+glClearColor(*black)  # background color
 
 @canvas.event
 def on_key_press(symbol, modifiers):
-    pyglet.app.exit()
+    global vis
+    if symbol == pyglet.window.key.I:
+        vis=not(vis)  # visibility switch
+        toggle(vis)
+    else: pyglet.app.exit()
 
 @canvas.event
 def draw():
@@ -53,15 +62,19 @@ def update(dt):  # updates an uniform circular motion then calls custom actions
     updates(dt)
     draw()
 
+def toggle(vis):
+    for e in [vr, hr]: e.colors = (200,200,200,255*vis)*5
+    dot.colors = (255,0,0,255*vis)*5
+
 #-------------------------------- SCENE STUFF ---------------------------------
-still = Sketch()  # 'default' still sketch
-wheel = Sketch()  # 'default' revolving sketch
+still  = Sketch()  # 'default' still sketch
+wheel  = Sketch()  # 'default' revolving sketch
 hslide = Sketch()
 vslide = Sketch()
 
 # dot -------------------------------------------------------------------------
 dot=batch.add(5, pyglet.gl.GL_LINE_STRIP, wheel,'v2i/static', 'c4B/static')
-dot.colors = (255,0,0,255)*5  # vertex list color data, rgba format
+dot.colors = (255,0,0,255*vis)*5  # vertex list color data, rgba format
 dot.vertices = translate([-3, 0, 3, 0, 0, 0, 0, 3, 0, -3], (400-10,0))
 
 # recs ------------------------------------------------------------------------
@@ -88,9 +101,17 @@ r7 = rec(w=thk, h=len, color=white, pos=(wth/2, -len-thk-wth/2))
 r8 = rec(w=thk, h=len, color=white, pos=(-wth/2 - thk, -len-thk-wth/2))
 s2 = rec(w=wth, h=len, color=white, pos=(-wth/2, -len/2, 0.1, 0), sk=vslide)
 
+vr=batch.add(5, pyglet.gl.GL_LINE_STRIP, vslide, 'v2f/static', 'c4B/static')
+vr.colors = (200,200,200,255*vis)*5  # vis = true/false visibility switch
+vr.vertices = (-640,-len/2,640,-len/2,640,len/2,-640,len/2,-640, -len/2)
+
+hr=batch.add(5, pyglet.gl.GL_LINE_STRIP, hslide, 'v2f/static', 'c4B/static')
+hr.colors = (200,200,200,255*vis)*5  # vis = true/false visibility switch
+hr.vertices = (-len/2,-400,len/2,-400,len/2,400,-len/2,400,-len/2, -400)
+
 # updates ---------------------------------------------------------------------
 from itertools import cycle
-old_hdir, old_vdir = 1, 1
+previous_hdir, previous_vdir = 1, 1
 BOW = pyglet.media.load('bow.wav', streaming=False)
 BOW1 = pyglet.media.load('bow1.wav', streaming=False)
 # kapla_colors
@@ -98,38 +119,33 @@ redk =(255, 69,   0,   255)  # red kapla
 bluk =(  0,  0, 140,   255)  # blue kapla
 grnk =(  0, 99,   0,   255)  # green kapla
 yelk =(255, 214,  0,   255)  # yellow kapla
-kapla_colors=(redk, grnk, bluk, yelk)  # addded 1 color for pb  w 4 kaplas
 
 target_h = cycle((r2,r1,r3,r4,s1))
 target_v = cycle((r5,r6,r8,r7,s2))
-h_color = cycle(kapla_colors)
-v_color = cycle(kapla_colors)
+h_color = cycle((redk, grnk, bluk, yelk))
+v_color = cycle((redk, grnk, bluk, yelk))
 
 def updates(dt):
-    global old_hdir, old_vdir
-    cosa, sina = math.cos(alpha*DEG2RAD), math.sin(alpha*DEG2RAD)
-
+    global previous_hdir, previous_vdir
     wheel.pos = [wheel.pos[0],wheel.pos[1], alpha]
 
-    old_h_pos = hslide.pos[0]
+    cosa = math.cos(alpha*DEG2RAD)
+    previous_h_pos = hslide.pos[0]
     hslide.pos = [640+cosa*(640-len/2), hslide.pos[1], 0]
-    new_hdir = cmp( old_h_pos, hslide.pos[0])
-    if new_hdir + old_hdir == 0:
+    new_hdir = cmp( previous_h_pos, hslide.pos[0])
+    if new_hdir + previous_hdir == 0:
         BOW.play()
-        old_hdir=new_hdir
-        t = target_h.next()
-        c = h_color.next()
-        t.colors = c*6
+        target_h.next().colors = h_color.next()*6
+        previous_hdir=new_hdir
 
-    old_v_pos = vslide.pos[1]
+    sina = math.sin(alpha*DEG2RAD)
+    previous_vslide_pos1 = vslide.pos[1]
     vslide.pos = [vslide.pos[0], 400+sina*(400-len/2), 0]
-    new_vdir = cmp( old_v_pos, vslide.pos[1])
-    if new_vdir + old_vdir == 0:
+    new_vdir = cmp( previous_vslide_pos1, vslide.pos[1])
+    if new_vdir + previous_vdir == 0:
         BOW1.play()
-        old_vdir=new_vdir
-        t = target_v.next()
-        c = v_color.next()
-        t.colors = c*6
+        target_v.next().colors = v_color.next()*6
+        previous_vdir=new_vdir
 
 #---------------------------------- MAIN --------------------------------------
 if __name__ == "__main__":
