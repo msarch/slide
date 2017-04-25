@@ -14,6 +14,12 @@ alpha = 0.0                 # initial angle
 vis = 1                     # visibility switch
 #---------------------------------- SKETCH ------------------------------------
 class Sketch(pyglet.graphics.Group): # subclass with position/rotation ability
+    '''
+    'sketches' are regular pyglet graphics.Groups whom 'set_state' and
+    'unset_state' methods are used to add move and rotate functionnalities.
+    Adding a shape to a group (batch.add) returns the matching vertex list,
+    color and vertex position are accessible through .colors and .vertices
+    '''
     def __init__(self,pos=ORIGIN):
         super(Sketch, self).__init__()
         self.pos=pos
@@ -54,7 +60,7 @@ def on_key_press(symbol, modifiers):
 @canvas.event
 def draw():
     canvas.clear()
-    batch.draw()
+    batch.draw()  # ALL graphics are added to this single batch!
 
 def update(dt):  # updates an uniform circular motion then calls custom actions
     global alpha
@@ -67,12 +73,13 @@ def toggle(vis):
     dot.colors = (255,0,0,255*vis)*5
 
 #-------------------------------- SCENE STUFF ---------------------------------
-still  = Sketch()  # 'default' still sketch
-wheel  = Sketch()  # 'default' revolving sketch
-hslide = Sketch()
-vslide = Sketch()
+still  = Sketch()  # is a still sketch, 'default'
+wheel  = Sketch()  # is revolving, 'default'
+hslide = Sketch()  # sliding horizontally
+vslide = Sketch()  # slides verticaly
 
 # dot -------------------------------------------------------------------------
+# dot, transparency toggled when key 'I' pressed
 dot=batch.add(5, pyglet.gl.GL_LINE_STRIP, wheel,'v2i/static', 'c4B/static')
 dot.colors = (255,0,0,255*vis)*5  # vertex list color data, rgba format
 dot.vertices = translate([-3, 0, 3, 0, 0, 0, 0, 3, 0, -3], (400-10,0))
@@ -100,11 +107,11 @@ r6 = rec(w=thk, h=len, color=white, pos=(-wth/2-thk, wth/2+thk))
 r7 = rec(w=thk, h=len, color=white, pos=(wth/2, -len-thk-wth/2))
 r8 = rec(w=thk, h=len, color=white, pos=(-wth/2 - thk, -len-thk-wth/2))
 s2 = rec(w=wth, h=len, color=white, pos=(-wth/2, -len/2, 0.1, 0), sk=vslide)
-
+# large rec, transparency toggled when key 'I' pressed
 vr=batch.add(5, pyglet.gl.GL_LINE_STRIP, vslide, 'v2f/static', 'c4B/static')
 vr.colors = (200,200,200,255*vis)*5  # vis = true/false visibility switch
 vr.vertices = (-640,-len/2,640,-len/2,640,len/2,-640,len/2,-640, -len/2)
-
+# large rec, transparency toggled when key 'I' pressed
 hr=batch.add(5, pyglet.gl.GL_LINE_STRIP, hslide, 'v2f/static', 'c4B/static')
 hr.colors = (200,200,200,255*vis)*5  # vis = true/false visibility switch
 hr.vertices = (-len/2,-400,len/2,-400,len/2,400,-len/2,400,-len/2, -400)
@@ -120,15 +127,18 @@ bluk =(  0,  0, 140,   255)  # blue kapla
 grnk =(  0, 99,   0,   255)  # green kapla
 yelk =(255, 214,  0,   255)  # yellow kapla
 
-target_h = cycle((r2,r1,r3,r4,s1))
-target_v = cycle((r5,r6,r8,r7,s2))
-h_color = cycle((redk, grnk, bluk, yelk))
-v_color = cycle((redk, grnk, bluk, yelk))
+target_h = cycle((r2,r1,r3,r4,s1))  #  color change toggled by hslide movmnt
+target_v = cycle((r5,r6,r8,r7,s2))  #  color change toggled by vslide movmnt
+h_color = cycle((redk, grnk, bluk, yelk))  # color choice for target_h
+v_color = cycle((yelk, bluk, grnk, redk))  # color choice for target_v
 
 def updates(dt):
     global previous_hdir, previous_vdir
+    # wheel is rotating
     wheel.pos = [wheel.pos[0],wheel.pos[1], alpha]
 
+    # hslide is oscillating
+    # if direction changes, target_h colors cycle, sound played
     cosa = math.cos(alpha*DEG2RAD)
     previous_h_pos = hslide.pos[0]
     hslide.pos = [640+cosa*(640-len/2), hslide.pos[1], 0]
@@ -138,6 +148,8 @@ def updates(dt):
         target_h.next().colors = h_color.next()*6
         previous_hdir=new_hdir
 
+    # vslide is oscillating
+    # if direction changes, target_v colors cycle, sound played
     sina = math.sin(alpha*DEG2RAD)
     previous_vslide_pos1 = vslide.pos[1]
     vslide.pos = [vslide.pos[0], 400+sina*(400-len/2), 0]
